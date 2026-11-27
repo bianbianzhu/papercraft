@@ -192,13 +192,26 @@ COMPACT = ['lumaP5', 'lumaP50', 'lumaP95', 'satMean', 'chromaP95', 'shadowHex', 
 # loading
 # ----------------------------------------------------------------------------------------------------------------
 def video_frame(path, at):
+    if path.startswith(('//', '\\')) or not os.path.isfile(path):
+        sys.exit('measure.py: video input must be a local regular file')
+    path = os.path.abspath(path)
+    try:
+        seconds = float(at)
+        if not math.isfinite(seconds) or seconds < 0:
+            raise ValueError
+    except ValueError:
+        sys.exit('measure.py: --at needs nonnegative finite seconds')
     exe = shutil.which('ffmpeg')
     if not exe:
         sys.exit('measure.py: %s is a video; install ffmpeg (on PATH) or export a frame as PNG first' % path)
-    cmd = [exe, '-v', 'error', '-ss', str(at), '-i', path, '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'png', '-']
-    out = subprocess.run(cmd, capture_output=True)
+    cmd = [exe, '-v', 'error', '-nostdin', '-ss', str(seconds), '-protocol_whitelist', 'file',
+           '-format_whitelist', 'mov,matroska,webm,avi', '-i', path, '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'png', '-']
+    try:
+        out = subprocess.run(cmd, capture_output=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        sys.exit('measure.py: video frame decoding exceeded 60 seconds')
     if out.returncode or not out.stdout:
-        sys.exit('measure.py: ffmpeg could not read a frame at %ss from %s: %s' % (at, path, out.stderr.decode()[:300]))
+        sys.exit('measure.py: ffmpeg could not read a frame at %ss from %s: %s' % (at, path, ascii(out.stderr.decode(errors='replace')[:300])))
     return Image.open(io.BytesIO(out.stdout))
 
 

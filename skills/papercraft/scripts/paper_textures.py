@@ -52,7 +52,11 @@ import json
 import math
 import os
 import sys
+import tempfile
+from pathlib import Path
 import zlib
+
+from output_paths import filename_stem, output_directory, output_file
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -734,51 +738,64 @@ def main(argv=None):
     if args.rgba and args.edge == 'none':
         args.edge = preset(args.preset)['edge']
 
-    R = build(args)
-    os.makedirs(args.out, exist_ok=True)
-    name = args.name or f'{args.preset}_{args.seed}'
-    path = lambda kind: os.path.join(args.out, f'{name}_{kind}.png')   # noqa: E731
-    written = []
-    if 'albedo' in maps:
-        save8(R['albedo'], path('albedo')); written.append(path('albedo'))
-    if 'detail' in maps:
-        save8(0.5 + 0.5 * R['rel'], path('detail')); written.append(path('detail'))
-    if 'height' in maps:
-        H = R['H']
-        save16((H - H.min()) / max(1e-9, float(H.max() - H.min())), path('height')); written.append(path('height'))
-    if 'normal' in maps:
-        save8(R['nrm'] * 0.5 + 0.5, path('normal')); written.append(path('normal'))
-    if 'roughness' in maps:
-        save8(R['rough'], path('roughness')); written.append(path('roughness'))
-    if 'smoothness' in maps:
-        save8(1.0 - R['rough'], path('smoothness')); written.append(path('smoothness'))
-    if 'opacity' in maps:
-        save8(R['opacity'], path('opacity')); written.append(path('opacity'))
+    try:
+        name = filename_stem(args.name if args.name is not None else f'{args.preset}_{args.seed}')
+        directory = output_directory(args.out)
+    except ValueError as exc:
+        ap.error(str(exc))
 
-    rgba = None
-    if args.edge != 'none':
-        a, fibre = edge_mask(args.size, args.edge, args.seed, R['fs'])
-        save8(a, path('mask')); written.append(path('mask'))
-        fib_srgb = to_srgb(R['core'])
-        col = R['albedo'] * (1 - fibre[..., None]) + fib_srgb[None, None, :] * fibre[..., None]
-        rgba = np.concatenate([col, a[..., None]], -1)
-        if args.rgba:
-            Image.fromarray(np.round(np.clip(rgba, 0, 1) * 255).astype(np.uint8)).save(path('albedo_rgba'))
-            written.append(path('albedo_rgba'))
-        R['meta']['edge'] = args.edge
+    with tempfile.TemporaryDirectory(dir=directory, prefix='.texture-') as scratch:
+        staging = Path(scratch)
+        def path(kind):
+            return staging / f'{name}_{kind}.png'
 
-    m = R['meta']
-    m['seam_ratio_rows_cols'] = [round(v, 3) for v in seam_ratio(R['albedo'] @ LUMA)]
-    if args.preview:
-        preview(R, args, rgba).save(path('preview')); written.append(path('preview'))
-    with open(os.path.join(args.out, f'{name}.json'), 'w', encoding='utf-8') as fh:
-        json.dump(m, fh, indent=2, sort_keys=True)
-        fh.write('\n')
+        R = build(args)
+        written = []
+        if 'albedo' in maps:
+            save8(R['albedo'], path('albedo')); written.append(path('albedo'))
+        if 'detail' in maps:
+            save8(0.5 + 0.5 * R['rel'], path('detail')); written.append(path('detail'))
+        if 'height' in maps:
+            H = R['H']
+            save16((H - H.min()) / max(1e-9, float(H.max() - H.min())), path('height')); written.append(path('height'))
+        if 'normal' in maps:
+            save8(R['nrm'] * 0.5 + 0.5, path('normal')); written.append(path('normal'))
+        if 'roughness' in maps:
+            save8(R['rough'], path('roughness')); written.append(path('roughness'))
+        if 'smoothness' in maps:
+            save8(1.0 - R['rough'], path('smoothness')); written.append(path('smoothness'))
+        if 'opacity' in maps:
+            save8(R['opacity'], path('opacity')); written.append(path('opacity'))
+
+        rgba = None
+        if args.edge != 'none':
+            a, fibre = edge_mask(args.size, args.edge, args.seed, R['fs'])
+            save8(a, path('mask')); written.append(path('mask'))
+            fib_srgb = to_srgb(R['core'])
+            col = R['albedo'] * (1 - fibre[..., None]) + fib_srgb[None, None, :] * fibre[..., None]
+            rgba = np.concatenate([col, a[..., None]], -1)
+            if args.rgba:
+                Image.fromarray(np.round(np.clip(rgba, 0, 1) * 255).astype(np.uint8)).save(path('albedo_rgba'))
+                written.append(path('albedo_rgba'))
+            R['meta']['edge'] = args.edge
+
+        m = R['meta']
+        m['seam_ratio_rows_cols'] = [round(v, 3) for v in seam_ratio(R['albedo'] @ LUMA)]
+        if args.preview:
+            preview(R, args, rgba).save(path('preview')); written.append(path('preview'))
+        metadata = staging / (name + '.json')
+        with open(metadata, 'w', encoding='utf-8') as fh:
+            json.dump(m, fh, indent=2, sort_keys=True)
+            fh.write('\n')
+        artifacts = written + [metadata]
+        destinations = [output_file(directory, artifact.name) for artifact in artifacts]
+        for artifact, destination in zip(artifacts, destinations):
+            artifact.replace(destination)
     sr = max(m['seam_ratio_rows_cols'])
     print(f'{name}: tooth RMS {m["tooth_rms_as_seen"]:.4f} (target {m["tooth_rms_target"]:.4f}), '
           f'tilt {m["mean_tilt_deg"]:.1f} deg, seam ratio {sr:.2f} ({"ok" if sr <= 1.5 else "SEAM"}), '
           f'albedo mean {m["albedo_mean"]}')
-    for w in written:
+    for w in destinations[:-1]:
         print('  wrote', w)
     return 0
 

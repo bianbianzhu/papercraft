@@ -22,7 +22,8 @@ Blindness: the sheet carries no file names, no metadata and no title; the order 
 derived from the input file contents, so each new pair gets its own order but re-running gives the same sheet).
 The key goes to --key (default: <sheet folder>/keys/<sheet name>.json). Keep keys out of the critic's reach and
 never print them into a critic's prompt. Name sheets neutrally (sheet_07.png, not new_vs_target.png): the critic
-sees the path. Decode a verdict by looking up its label in the key's "labels".
+sees the path. Decode a verdict with the basenames in "labels". For identical basenames, "order" gives the
+one-based input index (reference first, then candidates in argument order).
 
 Deterministic: same inputs and options give a byte-identical sheet and key.
 """
@@ -137,7 +138,7 @@ def main(argv=None):
             ap.error('no such file: %s' % f)
     hashes = [sha256(f) for f in files]
     roles = (['reference'] if args.ref else []) + ['candidate'] * len(args.candidates)
-    items = [dict(file=os.path.abspath(f), role=r, sha256=h) for f, r, h in zip(files, roles, hashes)]
+    items = [dict(file=f, role=r, input_index=i) for i, (f, r) in enumerate(zip(files, roles), 1)]
 
     seed = args.seed
     if seed is None:
@@ -177,11 +178,14 @@ def main(argv=None):
 
     key_path = args.key or os.path.join(os.path.dirname(os.path.abspath(args.out)), 'keys',
                                         os.path.splitext(os.path.basename(args.out))[0] + '.json')
-    key = dict(sheet=os.path.abspath(args.out), blind=not args.reveal, seed=seed,
+    public_items = [dict(file=os.path.basename(it['file']), role=it['role'], input_index=it['input_index']) for it in items]
+    key = dict(sheet=os.path.basename(args.out), blind=not args.reveal,
                reference=next((lab for lab, it in zip(labels, items) if it['role'] == 'reference'), None),
-               labels={lab: it['file'] for lab, it in zip(labels, items)},
-               order=[dict(label=lab, **it) for lab, it in zip(labels, items)],
+               labels={lab: it['file'] for lab, it in zip(labels, public_items)},
+               order=[dict(label=lab, **it) for lab, it in zip(labels, public_items)],
                panelHeight=h, crops=crops)
+    if args.seed is not None:
+        key['seed'] = args.seed
     os.makedirs(os.path.dirname(os.path.abspath(key_path)), exist_ok=True)
     with open(key_path, 'w', encoding='utf-8') as fh:
         json.dump(key, fh, indent=1)
