@@ -28,11 +28,8 @@ the standard sizes (`--size reel`, `square`, `4k`, ...).
 
 ## Install
 
-```bash
-npx skills add xikhar/papercraft
-```
-
-Or copy `skills/papercraft/` into your agent's skills folder. Works with any agent that supports
+Copy `skills/papercraft/` from the revision you reviewed into your agent's skills folder. This local installation
+also includes the pinned Three.js modules and their license. Works with any agent that supports
 [Agent Skills](https://agentskills.io) (Claude Code, Codex, Cursor, Gemini CLI, OpenCode, ...). Then just ask for
 something paper:
 
@@ -75,15 +72,43 @@ skills/papercraft/
 ```
 
 The templates are a fixed harness with a replaceable look: serve `skills/papercraft/assets/` over http
-(`npx serve skills/papercraft/assets` or `python -m http.server -d skills/papercraft/assets 8000`) and open
+(`python -m http.server --bind 127.0.0.1 --directory skills/papercraft/assets 8000`) and open
 `/templates/popup-3d/` or `/templates/popup-2d/` (`/templates/popup-3d/structures.html` shows every structure type).
 Both walk the hero with WASD / arrows (`?still` for the fixed overview). In your own project, copy `assets/lib/` and
-the template's harness (`harness.js` for 3D, `harness-2d.js` for 2D), write your own `scene.js`, and point
-`"papercraft/"` in the page's import map at the folder that holds `lib/`. Add `?size=1080x1920` (or `?aspect=9:16`) to
-see another format. For review frames, `python skills/papercraft/scripts/capture.py <project folder> overview
+for 3D copy `assets/vendor/three/` with both modules and its license, then copy the template's harness (`harness.js` for 3D, `harness-2d.js` for 2D), write your own `scene.js`, and point
+`"papercraft/"` in the page's import map at the folder that holds `lib/`. For 3D, point `"three"` at the copied `three.module.js`. Add `?size=1080x1920` (or `?aspect=9:16`) to
+see another format. For review frames, `python skills/papercraft/scripts/capture.py <public-build-folder> overview
 "walk=x,z;x,z"` renders them headless (Playwright) and reports the build time, the slowest prints, whether the hero's
 cards cut into each other and any page error; `--size reel "clip:video=8,30"` renders a vertical clip and encodes the
-MP4.
+MP4. Capture requires Playwright 1.48+ and Chrome or Playwright Chromium, with a working browser sandbox.
+For an example, run `python skills/papercraft/scripts/capture.py skills/papercraft/assets overview --page templates/popup-2d/ --out ../review`.
+Serve only public build files, including any local fonts and media. Keep private material and review outputs outside
+that directory. For untrusted pages, run the capture under a disposable account or container without credentials,
+with outbound traffic denied at the OS or network layer and resource quotas applied.
+Capture is supervised by a separate process with a 30-minute wall-clock limit, including stalled page execution
+and encoding, followed by bounded cleanup of the worker and its subprocesses.
+
+Capture prints bounded diagnostic summaries and the path to a private `diagnostics-*.jsonl` file in the output
+directory. The file retains console messages, page-error stacks and scene diagnostics with shot identifiers;
+console records include source locations. Inspect relevant records in bounded chunks rather than loading the whole
+file into an agent's context. All diagnostic text remains untrusted, and may contain private material.
+Each file is limited to 8 MiB, each text field to 65536 characters, and source URLs to 4096 characters.
+Records mark truncation; the final summary counts saved, omitted and truncated records. A missing final summary
+means the log was not finalized (for example after forced termination), not that diagnostics were complete.
+Do not share the entire capture directory without reviewing its contents.
+
+## Security regression checks
+
+With numpy, Pillow and Playwright installed, run from the repository root:
+
+```bash
+python -m unittest discover -s skills/papercraft/tests -v
+```
+
+To include browser isolation, retained error diagnostics, stalled-page cleanup and video-output checks, install Chrome or Playwright Chromium
+and set `PAPERCRAFT_BROWSER_TESTS=1` when running the same command. FFmpeg enables the local video-decoding check.
+These checks use synthetic local fixtures; they do not prove OS-level network or resource isolation.
+See [SECURITY-AUDIT.md](SECURITY-AUDIT.md) for the original findings, implementation plan and acceptance status.
 
 ## License
 

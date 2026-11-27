@@ -23,7 +23,7 @@ converge; 6 A consistent set; 7 Using what you made; 8 Generated images inside t
 - **Generated images are idealised.** Steer by them and measure toward them, but the finish line is the user's eye
   and the checks in SKILL.md section 8, never "a critic cannot tell them apart": in the source project, blind critics
   picked the generated frame over the build nearly every time.
-- **Never ship third-party images.** The user's references may be image inputs for what they give (SKILL.md
+- **Never ship third-party images.** Use only references authorized for the selected tool. Those references may be image inputs for what they give (SKILL.md
   section 2): say in the prompt what to take from each, and that its composition, characters, logos and text are not
   to be copied. The gallery is never an input.
 

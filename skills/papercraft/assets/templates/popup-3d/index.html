@@ -12,14 +12,14 @@
           color: #fff6e4; opacity: .85; letter-spacing: .03em; pointer-events: none; text-shadow: 0 1px 3px #5a3a20; }
 </style>
 <!-- "papercraft/" points at the folder that holds lib/ (and examples/): in your own project, wherever you copied them -->
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js", "papercraft/": "../../" } }</script>
+<script type="importmap">{ "imports": { "three": "../../vendor/three/three.module.js", "papercraft/": "../../" } }</script>
 </head>
 <body>
 <div class="hint" id="hint">arrows / WASD to walk - click to fold the world flat - drag to look around</div>
 <!-- A pop-up world seen from INSIDE it: the camera looks down into the world, the printed ground runs past every edge,
      dense groups of printed cards rise on hinges, a tilt-shift macro lens. harness.js is the fixed harness (renderer,
      light, lens, clock, walking, capture hook); scene.js is the countryside WORKED EXAMPLE: write your own scene.js
-     with your own pieces. Serve assets/ over http (npx serve assets) and open /templates/popup-3d/.
+     with your own pieces. Serve assets/ over loopback HTTP and open /templates/popup-3d/.
      ?capture ?test ?mood=golden|dusk|night ?walk ?still ?roam ?diag=key ?ss=2 -->
 <script type="module" src="./scene.js"></script>
 </body>

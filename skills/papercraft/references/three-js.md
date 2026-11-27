@@ -26,9 +26,9 @@ adds its world's life (`lib/paper-life.js`: `H.onStep((t, dt) => life.update(dt,
 `H.onRestart(() => life.reset(H.target))`, so `restart(); step(T)` captures repeat; `motion.md` section 12) and calls
 `H.start()`.
 
-- **In your own folder.** Copy `assets/lib/` (and `assets/examples/` only if you import one) and `harness.js`, keep
+- **In your own folder.** Copy `assets/lib/` (and `assets/examples/` only if you import one) plus `assets/vendor/three/` and `harness.js`, keep
   the harness as it is, and in your page's import map point `"papercraft/"` at the folder that holds `lib/` (the
-  template maps it to `../../`) and `"three"` at three r187 (the template's `index.html` uses the jsDelivr build);
+  template maps it to `../../`) and `"three"` at the copied r187 `vendor/three/three.module.js` (keep `three.core.js` beside it);
   your scene imports `papercraft/lib/paperkit-3d.js` and `./harness.js`.
 - **`?test`** (workflow step 2): the harness sets `H.flags.TEST`, pulls the camera in to `testView` (38 units, target
   [3, 1.5, -6]) and turns walking off. Your scene branches on the flag and builds only the hero, the printed ground and
